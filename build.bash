@@ -12,26 +12,33 @@ EOF
 	false
 fi
 
+if ! docker version; then
+	echo 'Docker not found' >&2
+	false
+fi
+
+if ! docker buildx version; then
+	echo '"docker buildx" not found (see https://docs.docker.com/buildx/working-with-buildx/ )' >&2
+	false
+fi
+
 I2SRC="$(realpath "$I2SRC")"
 BLDCTX="$(realpath "$(dirname "$0")")"
+TMPBLDCTX="$(mktemp -d)"
 
-docker build -f "${BLDCTX}/action.Dockerfile" -t icinga/icinga2-builder "$BLDCTX"
+trap "rm -rf $TMPBLDCTX" EXIT
 
-docker run --rm -i \
-	-v "${I2SRC}:/i2src:ro" \
-	-v "${BLDCTX}:/bldctx:ro" \
-	-v "$(printf %s ~/.ccache):/root/.ccache" \
-	-v /var/run/docker.sock:/var/run/docker.sock \
-	icinga/icinga2-builder bash <<EOF
-set -exo pipefail
+cp -a "${BLDCTX}/." "$TMPBLDCTX"
+git clone "file://${I2SRC}/.git" "${TMPBLDCTX}/icinga2-src"
 
-git -C /i2src archive --prefix=i2cp/ HEAD |tar -xC /
-cp -r /i2src/.git /i2cp
-cd /i2cp
+if [ "$(uname -m)" = x86_64 ]; then
+	PLATFORMS=( linux/amd64 )
+else
+	PLATFORMS=( linux/arm{64,/v{7,6,5}} )
+fi
 
-/bldctx/compile.bash
+for PLATFORM in "${PLATFORMS[@]}"; do
+	docker buildx build --platform "$PLATFORM" --load -f "${TMPBLDCTX}/Dockerfile" -t icinga/icinga2 "$TMPBLDCTX"
+done
 
-cp -r /entrypoint .
-docker build -f /bldctx/Dockerfile -t icinga/icinga2 .
 docker run --rm icinga/icinga2 icinga2 daemon -C
-EOF
