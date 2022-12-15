@@ -31,14 +31,6 @@ trap "rm -rf $TMPBLDCTX" EXIT
 cp -a "${BLDCTX}/." "$TMPBLDCTX"
 git clone "file://${I2SRC}/.git" "${TMPBLDCTX}/icinga2-src"
 
-if [ "$(uname -m)" = x86_64 ]; then
-	PLATFORMS=( linux/amd64 )
-else
-	PLATFORMS=( linux/arm{64,/v{7,6,5}} )
-fi
-
-for PLATFORM in "${PLATFORMS[@]}"; do
-	docker buildx build --platform "$PLATFORM" --load -f "${TMPBLDCTX}/Dockerfile" -t icinga/icinga2 "$TMPBLDCTX"
-done
+docker buildx build --platform "$(echo linux/{amd64,arm{64,/v{7,6,5}}} |tr ' ' ,)" --output=type=image -f "${TMPBLDCTX}/Dockerfile" -t icinga/icinga2 "$TMPBLDCTX"
 
 docker run --rm icinga/icinga2 icinga2 daemon -C
