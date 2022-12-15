@@ -15,5 +15,8 @@ jobs:
       - name: Icinga 2
         run: git clone https://github.com/Icinga/icinga2.git
 
+      - name: Icinga 2.13.3
+        run: git -C icinga2 checkout v2.13.3
+
       - name: Build
         run: ./build.bash ./icinga2
