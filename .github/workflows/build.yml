@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: buildx
+        run: docker buildx create --use
+
       - name: Checkout HEAD
         uses: actions/checkout@v1
 
